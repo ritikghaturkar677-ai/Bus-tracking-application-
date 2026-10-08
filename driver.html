@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="mr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Driver - Start Trip</title>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;background:#14213D;color:#fff;min-height:100vh;display:grid;place-items:center;padding:16px}
+.box{width:100%;max-width:420px;text-align:center}p{color:#c8cfe0}
+input,select{width:100%;padding:14px;margin:6px 0;border-radius:10px;border:0;font-size:16px}
+button{width:100%;padding:18px;border:0;border-radius:14px;font-size:20px;font-weight:700;margin-top:10px;background:#F2B705;color:#14213D}
+button.stop{background:#e5484d;color:#fff}#st{margin-top:16px;font-size:15px;word-break:break-all}.hide{display:none}
+</style></head><body>
+<div class="box">
+  <h1>🚌 Driver Panel</h1><p id="who">Login</p>
+  <div id="login"><input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password"><button id="bl">Login</button></div>
+  <div id="trip" class="hide">
+    <select id="busSel"><option value="bus1">Route 1 - Zahid Sir</option><option value="bus2">Route 2 - Zahur Sheikh</option><option value="bus3">Route 3 - Rakhunde Sir</option></select>
+    <button id="go">Start Trip</button><button id="end" class="stop hide">Stop Trip</button>
+    <p>Trip चालू असताना स्क्रीन उघडी ठेवा.</p>
+  </div>
+  <div id="st"></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+// Paste the same Firebase config as in index.html
+const FIREBASE_CONFIG={apiKey:"AIzaSyBxtclGJHvD6qEMni9khu-8coXRwE2_dfo",authDomain:"vit-bus-tracking-application.firebaseapp.com",databaseURL:"https://vit-bus-tracking-application-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"vit-bus-tracking-application",appId:"1:935717548847:web:bb3da04751c6032871e7da"};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth=firebase.auth(),db=firebase.database(),$=id=>document.getElementById(id),ref=()=>db.ref($('busSel').value);
+let watchId=null,lock=null;const msg=t=>$('st').textContent=t;
+auth.onAuthStateChanged(u=>{$('login').classList.toggle('hide',!!u);$('trip').classList.toggle('hide',!u);
+  $('who').textContent=u?'Welcome Driver':'Login';if(u)msg('Your UID: '+u.uid)});
+$('bl').onclick=()=>auth.signInWithEmailAndPassword($('em').value,$('pw').value).catch(e=>msg('Login error: '+e.message));
+$('go').onclick=async()=>{
+  if(!navigator.geolocation)return msg('GPS उपलब्ध नाही');
+  try{lock=await navigator.wakeLock.request('screen')}catch(e){}
+  watchId=navigator.geolocation.watchPosition(p=>ref().set({lat:p.coords.latitude,lng:p.coords.longitude,
+    active:true,time:firebase.database.ServerValue.TIMESTAMP}).then(()=>msg('✅ Sent '+new Date().toLocaleTimeString()))
+    .catch(e=>msg('Firebase error: '+e.message)),e=>msg('GPS error: Location permission द्या'),{enableHighAccuracy:true,maximumAge:3000,timeout:15000});
+  $('go').classList.add('hide');$('end').classList.remove('hide');$('busSel').disabled=true;
+};
+$('end').onclick=()=>{navigator.geolocation.clearWatch(watchId);if(lock)lock.release();ref().update({active:false});msg('Trip stopped');
+  $('end').classList.add('hide');$('go').classList.remove('hide');$('busSel').disabled=false};
+</script></body></html>
